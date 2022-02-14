@@ -1,4 +1,4 @@
-package fabricGen
+package generator
 
 import (
 	"testing"
