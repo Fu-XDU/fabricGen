@@ -338,7 +338,7 @@ organizations:
 
 orderers:
   orderer.#[Endpoint]:
-    url: localhost:#[OrdererPort]
+    url: orderer.#[Endpoint]:#[OrdererPort]
     grpcOptions:
       ssl-target-name-override: orderer.#[Endpoint]
       hostnameOverride: orderer.#[Endpoint]
@@ -348,8 +348,8 @@ orderers:
 
 peers:
   peer#[PeerNum].#[OrgName].#[Endpoint]:
-    url: localhost:#[PeerPort]
-    eventUrl: localhost:#[PeerEventPort]
+    url: peer#[PeerNum].#[OrgName].#[Endpoint]:#[PeerPort]
+    eventUrl: peer#[PeerNum].#[OrgName].#[Endpoint]:#[PeerEventPort]
     grpcOptions:
       ssl-target-name-override: peer#[PeerNum].#[OrgName].#[Endpoint]
       hostnameOverride: peer#[PeerNum].#[OrgName].#[Endpoint]

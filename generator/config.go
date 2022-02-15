@@ -76,7 +76,7 @@ func (c *Config) GenSDKFile() (err error) {
 	beginPort := c.beginPort
 	sdkConf := sdkConfig
 	temple1 := "peer#[PeerNum].#[OrgName].#[Endpoint]:\n        <<: *peerPermission"
-	temple2 := "peer#[PeerNum].#[OrgName].#[Endpoint]:\n    url: localhost:#[PeerPort]\n    eventUrl: localhost:#[PeerEventPort]\n    grpcOptions:\n      ssl-target-name-override: peer#[PeerNum].#[OrgName].#[Endpoint]\n      hostnameOverride: peer#[PeerNum].#[OrgName].#[Endpoint]\n      <<: *grpcOptions\n    tlsCACerts:\n      path: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/tlsca/tlsca.#[OrgName].#[Endpoint]-cert.pem"
+	temple2 := "peer#[PeerNum].#[OrgName].#[Endpoint]:\n    url: peer#[PeerNum].#[OrgName].#[Endpoint]:#[PeerPort]\n    eventUrl: peer#[PeerNum].#[OrgName].#[Endpoint]:#[PeerEventPort]\n    grpcOptions:\n      ssl-target-name-override: peer#[PeerNum].#[OrgName].#[Endpoint]\n      hostnameOverride: peer#[PeerNum].#[OrgName].#[Endpoint]\n      <<: *grpcOptions\n    tlsCACerts:\n      path: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/tlsca/tlsca.#[OrgName].#[Endpoint]-cert.pem"
 	temple3 := "    - pattern: (\\w+).#[OrgName].#[Endpoint]:(\\d+)\n      urlSubstitutionExp: ${1}.#[OrgName].#[Endpoint]:#[PeerPort]\n      sslTargetOverrideUrlSubstitutionExp: ${1}.#[OrgName].#[Endpoint]\n      mappedHost: peer#[PeerNum].#[OrgName].#[Endpoint]\n"
 	temple4 := "      - peer#[PeerNum].#[OrgName].#[Endpoint]\n"
 	for i := 0; i < c.peerConut; i++ {

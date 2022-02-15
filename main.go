@@ -13,6 +13,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	return
 	conf, _ = generator.NewConfigtx("org2", "flxdu2.cn", workingDir+"/org2", 4, 7509, []string{"cc1", "cc2"})
 	err = conf.LifecycleDeploy()
 	if err != nil {
