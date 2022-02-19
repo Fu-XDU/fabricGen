@@ -12,15 +12,28 @@ import (
 )
 
 type Config struct {
-	orgName    string
-	endPoint   string
-	outDir     string
-	peerConut  int
-	beginPort  int
-	chaincodes map[string]*chaincode
+	orgName      string
+	endPoint     string
+	outDir       string
+	peerConut    int
+	beginPort    int
+	chaincodes   map[string]*chaincode
+	BatchTimeout string
+	BatchSize    *BatchSize
 }
 
-func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chaincodes []string) (*Config, error) {
+// BatchSize contains configuration affecting the size of batches.
+type BatchSize struct {
+	MaxMessageCount   string
+	AbsoluteMaxBytes  string
+	PreferredMaxBytes string
+}
+
+func NewBatchSize(maxMessageCount string, absoluteMaxBytes string, preferredMaxBytes string) *BatchSize {
+	return &BatchSize{MaxMessageCount: maxMessageCount, AbsoluteMaxBytes: absoluteMaxBytes, PreferredMaxBytes: preferredMaxBytes}
+}
+
+func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chaincodes []string, batchTimeout string, batchSize *BatchSize) (*Config, error) {
 	if peerCount < 1 {
 		return nil, errors.New("peer count should > 1")
 	}
@@ -31,16 +44,18 @@ func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chain
 		return nil, err
 	}
 	return &Config{
-		orgName:    orgName,
-		endPoint:   endPoint,
-		outDir:     outDir,
-		peerConut:  peerCount,
-		beginPort:  seq,
-		chaincodes: newChaincodes(chaincodes),
+		orgName:      orgName,
+		endPoint:     endPoint,
+		outDir:       outDir,
+		peerConut:    peerCount,
+		beginPort:    seq,
+		chaincodes:   newChaincodes(chaincodes),
+		BatchTimeout: batchTimeout,
+		BatchSize:    batchSize,
 	}, nil
 }
 
-func (c *Config) Gen() (err error) {
+func (c *Config) Gen() (output string, err error) {
 	err = c.genCryptoConfigFile()
 	if err != nil {
 		return
@@ -50,11 +65,11 @@ func (c *Config) Gen() (err error) {
 		return
 	}
 	err = c.cleanData()
-	err = c.genCryptoConfig()
+	output, err = c.genCryptoConfig()
 	if err != nil {
 		return
 	}
-	err = c.genConfigTx()
+	output, err = c.genConfigTx()
 	if err != nil {
 		return
 	}
@@ -63,15 +78,38 @@ func (c *Config) Gen() (err error) {
 		return
 	}
 	err = c.GenSDKFile()
+	if err != nil {
+		return
+	}
+	err = c.genTapeConfigFile()
 	return
 }
 
-func (c *Config) genCryptoConfig() (err error) {
-	cmd := cryptogen + "generate --config=/data/crypto-config.yaml --output=/data/crypto-config"
-	cmd = fmt.Sprintf(cmd, c.outDir)
-	_, err = ExecShell(cmd)
+func (c *Config) genTapeConfigFile() (err error) {
+	tapeConf := tapeConfig
+	beginPort := c.beginPort
+	temple1 := "peer#[PeerNum]: &peer#[PeerNum]\n  addr: 127.0.0.1:#[PeerPort]\n"
+	for i := 0; i < c.peerConut; i++ {
+		newStr := strings.ReplaceAll(temple1, "#[PeerNum]", strconv.Itoa(i))
+		newStr = strings.ReplaceAll(newStr, "#[PeerPort]", strconv.Itoa(beginPort+1))
+		newStr += temple1
+		tapeConf = strings.ReplaceAll(tapeConf, temple1, newStr)
+		beginPort += 2
+	}
+	tapeConf = strings.ReplaceAll(tapeConf, temple1, "")
+	tapeConf = strings.ReplaceAll(tapeConf, "#[OrdererPort]", strconv.Itoa(c.beginPort))
+	tapeConf = c.replace(tapeConf)
+	err = toFile(c.outDir+"/tape-config.yaml", tapeConf)
 	return
 }
+
+func (c *Config) genCryptoConfig() (output string, err error) {
+	cmd := cryptogen + "generate --config=/data/crypto-config.yaml --output=/data/crypto-config"
+	cmd = fmt.Sprintf(cmd, c.outDir)
+	output, err = ExecShell(cmd)
+	return
+}
+
 func (c *Config) GenSDKFile() (err error) {
 	beginPort := c.beginPort
 	sdkConf := sdkConfig
@@ -108,11 +146,11 @@ func (c *Config) GenSDKFile() (err error) {
 	sdkConf = strings.ReplaceAll(sdkConf, temple3, "")
 	sdkConf = strings.ReplaceAll(sdkConf, temple4, "")
 	sdkConf = c.replace(sdkConf)
-	sdkConf = strings.ReplaceAll(sdkConf, "#[workingDir]", c.outDir)
 	sdkConf = strings.ReplaceAll(sdkConf, "#[OrdererPort]", strconv.Itoa(c.beginPort))
 	err = toFile(c.outDir+"/sdk-config.yaml", sdkConf)
 	return
 }
+
 func (c *Config) genComposeFile() (err error) {
 	beginPort := c.beginPort
 	composeStr := c.replace(compose)
@@ -134,7 +172,8 @@ func (c *Config) genComposeFile() (err error) {
 	err = toFile(c.outDir+"/docker-compose.yaml", composeStr)
 	return
 }
-func (c *Config) genConfigTx() (err error) {
+
+func (c *Config) genConfigTx() (output string, err error) {
 	// Make dir
 	cmd := "mkdir -p %s/configtx"
 	cmd = fmt.Sprintf(cmd, c.outDir)
@@ -155,11 +194,16 @@ func (c *Config) genConfigTx() (err error) {
 	cmd = c.replace(cmd)
 	cmd = fmt.Sprintf(cmd, c.outDir)
 	_, err = ExecShell(cmd)
-	return nil
+	return
 }
 
 func (c *Config) genConfigtxFile() (err error) {
 	tx := c.replace(configtx)
+	tx = strings.ReplaceAll(tx, "#[OrdererPort]", strconv.Itoa(c.beginPort))
+	tx = strings.ReplaceAll(tx, "#[BatchTimeout]", c.BatchTimeout)
+	tx = strings.ReplaceAll(tx, "#[MaxMessageCount]", c.BatchSize.MaxMessageCount)
+	tx = strings.ReplaceAll(tx, "#[AbsoluteMaxBytes]", c.BatchSize.AbsoluteMaxBytes)
+	tx = strings.ReplaceAll(tx, "#[PreferredMaxBytes]", c.BatchSize.PreferredMaxBytes)
 
 	err = toFile(c.outDir+"/configtx.yaml", tx)
 	return
@@ -173,17 +217,26 @@ func (c *Config) genCryptoConfigFile() (err error) {
 }
 
 func (c *Config) cleanData() (err error) {
+	// Make dir
+	trash := fmt.Sprintf("%s/Trash", c.outDir)
+	cmd := "mkdir -p " + trash
+	_, err = ExecShell(cmd)
 	t := time.Now().Format(time.RFC3339)
+
 	path := fmt.Sprintf("%s/configtx", c.outDir)
-	_ = os.Rename(path, "/Users/fuming/.Trash/configtx "+t)
+	_ = os.Rename(path, trash+"/configtx "+t)
 	path = fmt.Sprintf("%s/crypto-config", c.outDir)
-	_ = os.Rename(path, "/Users/fuming/.Trash/crypto-config "+t)
+	_ = os.Rename(path, trash+"/crypto-config "+t)
+	path = fmt.Sprintf("%s/var", c.outDir)
+	_ = os.Rename(path, trash+"/var "+t)
 	return
 }
+
 func (c *Config) replace(str string) string {
 	str = strings.ReplaceAll(str, "#[OrgName]", c.orgName)
 	str = strings.ReplaceAll(str, "#[Endpoint]", c.endPoint)
 	str = strings.ReplaceAll(str, "#[PeerCount]", strconv.Itoa(c.peerConut))
+	str = strings.ReplaceAll(str, "#[workingDir]", c.outDir)
 	return str
 }
 

@@ -6,15 +6,25 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
+const duration = 5 * time.Second
+
 func (c *Config) LifecycleDeploy() (err error) {
-	err = c.Gen()
+	output, err := c.Gen()
 	if err != nil {
+		log.Println(output)
 		return
 	}
 	err = c.Up()
+	time.Sleep(duration)
 	err = c.CreateAndJoinChannel()
+	if err != nil {
+		log.Println(output)
+		return
+	}
+	time.Sleep(duration)
 	err = c.DeployCC("cc1")
 	return nil
 }
@@ -44,11 +54,28 @@ func (c *Config) CreateChannel() (err error) {
 }
 
 func (c *Config) JoinChannel() (err error) {
+	tryTimes := 1
 	cmd := c.replace(joinChannel)
+	var output string
 	for i := 0; i < c.peerConut; i++ {
 		cmd2 := strings.ReplaceAll(cmd, "#[PeerNum]", strconv.Itoa(i))
-		_, err = ExecShell(cmd2)
-		log.Printf("peer [peer%s.%s] join channel hello", strconv.Itoa(i), c.endPoint)
+		log.Printf("peer [peer%v.%s.%s] join channel hello", i, c.orgName, c.endPoint)
+		output, err = ExecShell(cmd2)
+		p := strings.Split(output, "\n")
+		lastline := p[len(p)-2]
+		succ := strings.Index(lastline, "Successfully submitted proposal to join channel")
+		if succ == -1 {
+			log.Printf("%v", p[len(p)-2])
+			log.Printf("peer [peer%v.%s.%s] join channel hello failed", i, c.orgName, c.endPoint)
+			if tryTimes < 5 {
+				log.Printf("try again in 5 seconds, n: %v", tryTimes)
+				tryTimes++
+				time.Sleep(duration)
+				i--
+			} else {
+				return errors.New(fmt.Sprintf("peer [peer%v.%s.%s] join channel hello failed,exit", i, c.orgName, c.endPoint))
+			}
+		}
 	}
 	return
 }
@@ -73,7 +100,7 @@ func (c *Config) InstallCC(ccName string) (err error) {
 		if c.chaincodes[ccName].packageID == "" {
 			c.chaincodes[ccName].packageID = getPackageID(o)
 		}
-		log.Printf("peer [peer%s.%s] install chaincode [%s]", strconv.Itoa(i), c.endPoint, ccName)
+		log.Printf("peer [peer%v.%s.%s] install chaincode [%s]", i, c.orgName, c.endPoint, ccName)
 	}
 	return
 }
@@ -93,7 +120,7 @@ func (c *Config) ApproveCC(ccName string) (err error) {
 	cmd = strings.ReplaceAll(cmd, "#[packageID]", c.chaincodes[ccName].packageID)
 	_, err = ExecShell(cmd)
 	c.chaincodes[ccName].approved = true
-	log.Printf("peer [peer0.%s] approve chaincode [%s]", c.endPoint, ccName)
+	log.Printf("peer [peer0.%s.%s] approve chaincode [%s]", c.orgName, c.endPoint, ccName)
 	return
 }
 
@@ -115,7 +142,7 @@ func (c *Config) CommitCC(ccName string) (err error) {
 	cmd = strings.ReplaceAll(cmd, "#[PeerNum]", "0")
 	_, err = ExecShell(cmd)
 	c.chaincodes[ccName].commited = true
-	log.Printf("peer [peer0.%s] commit chaincode [%s]", c.endPoint, ccName)
+	log.Printf("peer [peer0.%s.%s] commit chaincode [%s]", c.orgName, c.endPoint, ccName)
 	return
 }
 
@@ -140,7 +167,7 @@ func (c *Config) InitCC(ccName string) (err error) {
 	cmd = strings.ReplaceAll(cmd, "#[CCName]", ccName)
 	cmd = strings.ReplaceAll(cmd, "#[PeerNum]", "0")
 	_, err = ExecShell(cmd)
-	log.Printf("peer [peer0.%s] init chaincode [%s]", c.endPoint, ccName)
+	log.Printf("peer [peer0.%s.%s] init chaincode [%s]", c.orgName, c.endPoint, ccName)
 	return
 }
 

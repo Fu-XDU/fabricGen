@@ -6,12 +6,14 @@ import (
 
 func Test(t *testing.T) {
 	type fields struct {
-		orgName    string
-		endPoint   string
-		outDir     string
-		peerConut  int
-		beginPort  int
-		chaincodes []string
+		orgName      string
+		endPoint     string
+		outDir       string
+		peerConut    int
+		beginPort    int
+		chaincodes   []string
+		batchTimeout string
+		batchSize    *BatchSize
 	}
 	tests := []struct {
 		name    string
@@ -21,23 +23,25 @@ func Test(t *testing.T) {
 		{
 			name: "test1",
 			fields: fields{
-				orgName:    "org1",
-				endPoint:   "flxdu.cn",
-				outDir:     "./fabricGen",
-				peerConut:  6,
-				beginPort:  7050,
-				chaincodes: []string{"cc1", "cc2"},
+				orgName:      "org1",
+				endPoint:     "flxdu.cn",
+				outDir:       "./fabricGen",
+				peerConut:    6,
+				beginPort:    7050,
+				chaincodes:   []string{"cc1", "cc2"},
+				batchTimeout: "2s",
+				batchSize:    NewBatchSize("10", "98 MB", "512 KB"),
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := NewConfigtx(tt.fields.orgName, tt.fields.endPoint, tt.fields.outDir, tt.fields.peerConut, tt.fields.beginPort, tt.fields.chaincodes)
+			c, err := NewConfigtx(tt.fields.orgName, tt.fields.endPoint, tt.fields.outDir, tt.fields.peerConut, tt.fields.beginPort, tt.fields.chaincodes, tt.fields.batchTimeout, tt.fields.batchSize)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewConfigtx() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if err = c.Gen(); (err != nil) != tt.wantErr {
+			if _, err = c.Gen(); (err != nil) != tt.wantErr {
 				t.Errorf("Gen() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

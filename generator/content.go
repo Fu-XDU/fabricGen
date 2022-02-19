@@ -85,11 +85,11 @@ Orderer: &OrdererDefaults
   OrdererType: solo
   Addresses:
     - orderer.#[Endpoint]:7050
-  BatchTimeout: 0.2s
+  BatchTimeout: #[BatchTimeout]
   BatchSize:
-    MaxMessageCount: 10
-    AbsoluteMaxBytes: 99MB
-    PreferredMaxBytes: 512KB
+    MaxMessageCount: #[MaxMessageCount]
+    AbsoluteMaxBytes: #[AbsoluteMaxBytes]
+    PreferredMaxBytes: #[PreferredMaxBytes]
   Kafka:
     Brokers:
       - 127.0.0.1:9092
@@ -213,12 +213,16 @@ services:
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer#[PeerNum].#[OrgName].#[Endpoint]:7051
       - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
+      - CORE_PEER_GOSSIP_STATE_ENABLED=true
+
     command: peer node start
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - ./crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/peers/peer#[PeerNum].#[OrgName].#[Endpoint]/msp:/etc/hyperledger/peer/msp
       - ./crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/peers/peer#[PeerNum].#[OrgName].#[Endpoint]/tls:/etc/hyperledger/peer/tls
       - ./var/peer#[PeerNum].#[OrgName].#[Endpoint]:/var/hyperledger/production
+      #- ./var/etc/hyperledger/fabric:/etc/hyperledger/fabric
+      - ./var/hyperledger:/var/hyperledger
     ports:
       - "#[PeerPort]:7051"
       - "#[PeerPort2]:7053"
@@ -370,11 +374,43 @@ entityMatchers:
       mappedHost: peer#[PeerNum].#[OrgName].#[Endpoint]
 
 `
+	tapeConfig = `peer#[PeerNum]: &peer#[PeerNum]
+  addr: 127.0.0.1:#[PeerPort]
+orderer1: &orderer1
+  addr: 127.0.0.1:#[OrdererPort]
+
+# Nodes to interact with
+endorsers:
+  - *peer0
+# we might support multi-committer in the future for more complex test scenario,
+# i.e. consider tx committed only if it's done on >50% of nodes. But for now,
+# it seems sufficient to support single committer.
+committers:
+  - *peer0
+commitThreshold: 1
+
+orderer: *orderer1
+
+
+# Invocation configs
+channel: hello
+chaincode: cc1
+args:
+  - transfer
+  - peer0.org1.flxdu.cn
+  - peer1.org1.flxdu.cn
+  - 0x1
+mspid: org1MSP
+private_key: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/keystore/priv_sk
+sign_cert: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/signcerts/User1@#[OrgName].#[Endpoint]-cert.pem
+num_of_conn: 10
+client_per_conn: 10
+`
 	createChannel = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP cli.#[Endpoint] peer channel create -o orderer.#[Endpoint]:7050 -c hello -f /opt/configtx/hello.tx"
 	joinChannel   = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer channel join -b /opt/configtx/hello.block"
 	installCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode install /opt/gopath/src/github.com/#[CCName]/#[CCName].tar.gz"
 	approveCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode approveformyorg --channelID hello --name #[CCName] --version 1.0 --init-required --package-id #[packageID] --sequence 1"
 	commitCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode commit -o orderer.#[Endpoint]:7050 --channelID hello --name #[CCName] --version 1.0 --sequence 1 --init-required"
-	initCC        = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"hello\", \"world\"]}'"
+	initCC        = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"peer0.org1.flxdu.cn\", \"0xffff\",\"peer1.org1.flxdu.cn\", \"0xffff\"]}'"
 	//invokeCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 -C hello -n #[CCName] -c '{\"Args\":#[Args]}'"
 )
