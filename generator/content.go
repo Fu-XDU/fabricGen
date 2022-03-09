@@ -397,20 +397,190 @@ channel: hello
 chaincode: cc1
 args:
   - transfer
-  - peer0.org1.flxdu.cn
-  - peer1.org1.flxdu.cn
+  - peer0.#[OrgName].#[Endpoint]
+  - peer1.#[OrgName].#[Endpoint]
   - 0x1
-mspid: org1MSP
+mspid: #[OrgName]MSP
 private_key: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/keystore/priv_sk
 sign_cert: #[workingDir]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/signcerts/User1@#[OrgName].#[Endpoint]-cert.pem
 num_of_conn: 10
 client_per_conn: 10
+`
+	caliperCompose = `version: "2"
+
+networks:
+  caliper.com:
+    external:
+      name: #[OrgName]_byfn
+
+services:
+  caliper:
+    container_name: caliper
+    image: hyperledger/caliper:0.4.2
+    command: launch manager --caliper-fabric-gateway-enabled
+    environment:
+      - CALIPER_BIND_SUT=fabric:2.2
+      - CALIPER_BENCHCONFIG=#[OrgName]/caliper-workspace/benchmarks/config.yaml
+      - CALIPER_NETWORKCONFIG=#[OrgName]/caliper-workspace/networks/network-config.yaml
+    volumes:
+      - ../../:/hyperledger/caliper/workspace
+    networks:
+        - caliper.com
+`
+	caliperConfig = `---
+test:
+  name: simple
+  description:
+    This is an example benchmark for caliper, to test the backend DLT's
+    performance with simple account opening & querying transactions
+  workers:
+    type: local
+    number: 4
+  rounds:
+    - label: open
+      description: Test description for the opening of an account through the deployed chaincode
+      txNumber: 3000
+      rateControl:
+        type: maximum-rate
+        opts:
+          tps: 300
+          step: 50
+          sampleInterval: 1
+          includeFailed: true
+      arguments:
+        money: 100
+      workload:
+        module: #[OrgName]/caliper-workspace/benchmarks/open.js
+#监测docker容器的资源使用情况
+monitor:
+  type:
+  - docker
+  docker:  
+    containers:
+    - all
+    charting:
+    bar:
+      metrics: [Memory(avg), CPU%(avg)]
+    polar:
+      metrics: [all]`
+	openjs = `'use strict';
+
+const {WorkloadModuleInterface} = require('@hyperledger/caliper-core');
+
+class MyWorkload extends WorkloadModuleInterface {
+    constructor() {
+        super();
+        this.workerIndex = -1;
+        this.totalWorkers = -1;
+        this.roundIndex = -1;
+        this.roundArguments = undefined;
+        this.sutAdapter = undefined;
+        this.sutContext = undefined;
+    }
+
+    async initializeWorkloadModule(workerIndex, totalWorkers, roundIndex, roundArguments, sutAdapter, sutContext) {
+        this.workerIndex = workerIndex;
+        this.totalWorkers = totalWorkers;
+        this.roundIndex = roundIndex;
+        this.roundArguments = roundArguments;
+        this.sutAdapter = sutAdapter;
+        this.sutContext = sutContext;
+    }
+
+    async submitTransaction() {
+        // TX arguments for "cc1"
+        let requestSettings = {
+            contractId: 'cc1',
+            contractFunction: 'transfer',
+            contractArguments: ["peer0.#[OrgName].#[Endpoint]", "peer1.#[OrgName].#[Endpoint]", "0x1"],
+            //readOnly: true,
+            //invokerIdentity: 'client0.org2.example.com',
+            timeout: 10
+        };
+
+        await this.sutAdapter.sendRequests(requestSettings);
+    }
+
+    async cleanupWorkloadModule() {
+        // NOOP
+    }
+}
+
+function createWorkloadModule() {
+    return new MyWorkload();
+}
+
+module.exports.createWorkloadModule = createWorkloadModule;`
+	caliperNetworkConfig = `name: Fabric
+version: "1.0"
+mutual-tls: false
+
+caliper:
+  blockchain: fabric
+
+
+info:
+  Version: 2.1
+clients:
+  client.#[OrgName].#[Endpoint]:
+    client:
+      organization: #[OrgName]
+      credentialStore:
+        path: /tmp/hfc-kvs/#[OrgName]
+        cryptoStore:
+          path: /tmp/hfc-cvs/#[OrgName]
+      clientPrivateKey:
+        path: #[OrgName]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/keystore/priv_sk
+      clientSignedCert:
+        path: #[OrgName]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/User1@#[OrgName].#[Endpoint]/msp/signcerts/User1@#[OrgName].#[Endpoint]-cert.pem
+
+
+channels:
+  hello:
+    created: true
+    orderers:
+      - orderer.#[Endpoint]
+    peers:
+      peer#[PeerNum].#[OrgName].#[Endpoint]:
+        eventSource: true
+
+    contracts:
+      - id: cc1
+        version: "1.0"
+        language: golang
+        path: chaincode/cc1
+
+organizations:
+  #[OrgName]:
+    mspid: #[OrgName]MSP
+    peers:
+      - peer#[PeerNum].#[OrgName].#[Endpoint]
+    adminPrivateKey:
+      path: #[OrgName]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp/keystore/priv_sk
+    signedCert:
+      path: #[OrgName]/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp/signcerts/Admin@#[OrgName].#[Endpoint]-cert.pem
+
+
+
+orderers:
+  orderer.#[Endpoint]:
+    url: grpc://orderer.#[Endpoint]:7050
+    grpcOptions:
+      ssl-target-name-override: orderer.#[Endpoint]
+
+peers:
+  peer#[PeerNum].#[OrgName].#[Endpoint]:
+    url: grpc://peer#[PeerNum].#[OrgName].#[Endpoint]:7051
+    grpcOptions:
+      ssl-target-name-override: peer#[PeerNum].#[OrgName].#[Endpoint]
+      grpc.keepalive_time_ms: 600000
+
 `
 	createChannel = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP cli.#[Endpoint] peer channel create -o orderer.#[Endpoint]:7050 -c hello -f /opt/configtx/hello.tx"
 	joinChannel   = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer channel join -b /opt/configtx/hello.block"
 	installCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode install /opt/gopath/src/github.com/#[CCName]/#[CCName].tar.gz"
 	approveCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode approveformyorg --channelID hello --name #[CCName] --version 1.0 --init-required --package-id #[packageID] --sequence 1"
 	commitCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode commit -o orderer.#[Endpoint]:7050 --channelID hello --name #[CCName] --version 1.0 --sequence 1 --init-required"
-	initCC        = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"peer0.org1.flxdu.cn\", \"0xffff\",\"peer1.org1.flxdu.cn\", \"0xffff\"]}'"
+	initCC        = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"peer0.#[OrgName].#[Endpoint]\", \"0xffff\",\"peer1.#[OrgName].#[Endpoint]\", \"0xffff\"]}'"
 	//invokeCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 -C hello -n #[CCName] -c '{\"Args\":#[Args]}'"
 )

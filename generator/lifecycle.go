@@ -25,7 +25,9 @@ func (c *Config) LifecycleDeploy() (err error) {
 		return
 	}
 	time.Sleep(duration)
-	err = c.DeployCC("cc1")
+	_ = c.DeployCC("cc1")
+	log.Println("Done!")
+	log.Printf("Run `docker-compose -f %s/caliper-workspace/docker-compose.yaml up` to test network", c.outDir)
 	return nil
 }
 

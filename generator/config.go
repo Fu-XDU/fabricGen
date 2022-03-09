@@ -82,6 +82,10 @@ func (c *Config) Gen() (output string, err error) {
 		return
 	}
 	err = c.genTapeConfigFile()
+	if err != nil {
+		return
+	}
+	err = c.genCaliperConfig()
 	return
 }
 
@@ -240,6 +244,50 @@ func (c *Config) replace(str string) string {
 	return str
 }
 
+func (c *Config) genCaliperConfig() (err error) {
+	// Make dir
+	cmd := "mkdir -p %s/caliper-workspace"
+	cmd = fmt.Sprintf(cmd, c.outDir)
+	_, err = ExecShell(cmd)
+
+	cmd = "mkdir -p %s/caliper-workspace/benchmarks"
+	cmd = fmt.Sprintf(cmd, c.outDir)
+	_, err = ExecShell(cmd)
+
+	cmd = "mkdir -p %s/caliper-workspace/networks"
+	cmd = fmt.Sprintf(cmd, c.outDir)
+	_, err = ExecShell(cmd)
+
+	err = toFile(c.outDir+"/caliper-workspace/docker-compose.yaml", c.replace(caliperCompose))
+	if err != nil {
+		return
+	}
+
+	err = toFile(c.outDir+"/caliper-workspace/benchmarks/open.js", openjs)
+	if err != nil {
+		return
+	}
+
+	err = toFile(c.outDir+"/caliper-workspace/benchmarks/config.yaml", c.replace(caliperConfig))
+	if err != nil {
+		return
+	}
+	networkConfig := caliperNetworkConfig
+	temples := []string{"      peer#[PeerNum].#[OrgName].#[Endpoint]:\n        eventSource: true\n", "      - peer#[PeerNum].#[OrgName].#[Endpoint]\n", "  peer#[PeerNum].#[OrgName].#[Endpoint]:\n    url: grpc://peer#[PeerNum].#[OrgName].#[Endpoint]:7051\n    grpcOptions:\n      ssl-target-name-override: peer#[PeerNum].#[OrgName].#[Endpoint]\n      grpc.keepalive_time_ms: 600000\n"}
+	for i := 0; i < c.peerConut; i++ {
+		for _, t := range temples {
+			newStr := strings.ReplaceAll(t, "#[PeerNum]", strconv.Itoa(i))
+			newStr += t
+			networkConfig = strings.ReplaceAll(networkConfig, t, newStr)
+		}
+	}
+	for _, t := range temples {
+		networkConfig = strings.ReplaceAll(networkConfig, t, "")
+	}
+	networkConfig = c.replace(networkConfig)
+	err = toFile(c.outDir+"/caliper-workspace/networks/network-config.yaml", networkConfig)
+	return
+}
 func toFile(dir, content string) (err error) {
 	file, err := os.OpenFile(dir, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
