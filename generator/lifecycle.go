@@ -25,7 +25,12 @@ func (c *Config) LifecycleDeploy() (err error) {
 		return
 	}
 	time.Sleep(duration)
-	_ = c.DeployCC("cc1")
+	for cc := range c.chaincodes {
+		err = c.DeployCC(cc)
+		if err != nil {
+			return
+		}
+	}
 	log.Println("Done!")
 	//log.Printf("Run `docker-compose -f %s/caliper-workspace/docker-compose.yaml up` to test network", c.outDir)
 	return nil
@@ -82,11 +87,20 @@ func (c *Config) JoinChannel() (err error) {
 	return
 }
 
-func (c *Config) DeployCC(ccName string) (err error) {
-	err = c.InstallCC(ccName)
-	err = c.ApproveCC(ccName)
-	err = c.CommitCC(ccName)
-	err = c.InitCC(ccName)
+func (c *Config) DeployCC(cc string) (err error) {
+	err = c.InstallCC(cc)
+	if err != nil {
+		return
+	}
+	err = c.ApproveCC(cc)
+	if err != nil {
+		return
+	}
+	err = c.CommitCC(cc)
+	if err != nil {
+		return
+	}
+	err = c.InitCC(cc)
 	return
 }
 
