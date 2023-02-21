@@ -14,7 +14,7 @@ const duration = 5 * time.Second
 func (c *Config) LifecycleDeploy() (err error) {
 	output, err := c.Gen()
 	if err != nil {
-		log.Println(output)
+		log.Println(output, err)
 		return
 	}
 	err = c.Up()
@@ -27,7 +27,7 @@ func (c *Config) LifecycleDeploy() (err error) {
 	time.Sleep(duration)
 	_ = c.DeployCC("cc1")
 	log.Println("Done!")
-	log.Printf("Run `docker-compose -f %s/caliper-workspace/docker-compose.yaml up` to test network", c.outDir)
+	//log.Printf("Run `docker-compose -f %s/caliper-workspace/docker-compose.yaml up` to test network", c.outDir)
 	return nil
 }
 

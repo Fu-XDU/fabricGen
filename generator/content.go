@@ -147,8 +147,8 @@ PeerOrgs:
       Count: #[PeerCount]
     Users:
       Count: 1`
-	configtxgen = "docker run -v %s:/data -e FABRIC_CFG_PATH=/data --rm hyperledger/fabric-tools:2.4 configtxgen "
-	cryptogen   = "docker run --rm -v %s:/data hyperledger/fabric-tools:2.4 cryptogen "
+	configtxgen = "docker run --privileged=true -v %s:/data -e FABRIC_CFG_PATH=/data --rm hyperledger/fabric-tools:2.4 configtxgen "
+	cryptogen   = "docker run --rm --privileged=true -v %s:/data hyperledger/fabric-tools:2.4 cryptogen "
 	compose     = `version: '3'
 
 networks:
@@ -159,6 +159,7 @@ services:
     container_name: orderer.#[Endpoint]
     image: hyperledger/fabric-orderer:2.4
     restart: always
+    privileged: true
     environment:
       - ORDERER_GENERAL_LOGLEVEL=debug
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
@@ -180,6 +181,7 @@ services:
   cli:
     container_name: cli.#[Endpoint]
     image: hyperledger/fabric-tools:2.4
+    privileged: true
     tty: true
     environment:
       - GOPATH=/opt/gopath
@@ -198,6 +200,7 @@ services:
 	peer = `  peer#[PeerNum].#[OrgName].#[Endpoint]:
     container_name: peer#[PeerNum].#[OrgName].#[Endpoint]
     image: hyperledger/fabric-peer:2.4
+    privileged: true
     environment:
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=#[OrgName]_byfn
