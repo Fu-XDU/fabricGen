@@ -175,6 +175,8 @@ services:
     ports:
       - "#[OrdererPort]:7050"
     command: orderer start
+    logging:
+      driver: none
     networks:
       - byfn
 
@@ -193,6 +195,8 @@ services:
       - ./chaincode/#[CCName]:/opt/gopath/src/github.com/#[CCName]
       - ./crypto-config:/opt/crypto-config
       - ./configtx:/opt/configtx
+    logging:
+      driver: none
     networks:
       - byfn
 
@@ -229,6 +233,8 @@ services:
     ports:
       - "#[PeerPort]:7051"
       - "#[PeerPort2]:7053"
+    logging:
+      driver: none
     networks:
       - byfn
 

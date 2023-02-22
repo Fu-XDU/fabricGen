@@ -21,12 +21,12 @@ var (
 	BatchTimeoutFlag = cli.StringFlag{
 		Name:  "timeout, t",
 		Usage: "Batch timeout",
-		Value: "2s",
+		Value: "1s",
 	}
 	MaxMessageCountFlag = cli.StringFlag{
 		Name:  "maxMessageCount, m",
 		Usage: "Max message count",
-		Value: "10",
+		Value: "500",
 	}
 	AbsoluteMaxBytesFlag = cli.StringFlag{
 		Name:  "absoluteMaxBytes, am",
@@ -36,7 +36,7 @@ var (
 	PreferredMaxBytesFlag = cli.StringFlag{
 		Name:  "preferredMaxBytes, pm",
 		Usage: "Preferred max bytes",
-		Value: "512 KB",
+		Value: "8193 KB",
 	}
 	PeerCountFlag = cli.IntFlag{
 		Name:  "peercount, p",
