@@ -149,7 +149,7 @@ PeerOrgs:
       Count: 1`
 	configtxgen = "docker run --privileged=true -v %s:/data -e FABRIC_CFG_PATH=/data --rm hyperledger/fabric-tools:2.4 configtxgen "
 	cryptogen   = "docker run --rm --privileged=true -v %s:/data hyperledger/fabric-tools:2.4 cryptogen "
-	compose     = `version: '3'
+	compose     = `version: '3.7'
 
 networks:
   byfn:
@@ -174,6 +174,10 @@ services:
       - ./var/orderer.#[Endpoint]:/var/hyperledger/production/orderer
     ports:
       - "#[OrdererPort]:7050"
+    deploy:
+      resources:
+        limits:
+          cpus: '#[cpu_limit]'
     command: orderer start
     logging:
       driver: none
@@ -199,7 +203,6 @@ services:
       driver: none
     networks:
       - byfn
-
 `
 	peer = `  peer#[PeerNum].#[OrgName].#[Endpoint]:
     container_name: peer#[PeerNum].#[OrgName].#[Endpoint]
@@ -233,6 +236,10 @@ services:
     ports:
       - "#[PeerPort]:7051"
       - "#[PeerPort2]:7053"
+    deploy:
+      resources:
+        limits:
+          cpus: '#[cpu_limit]'
     logging:
       driver: none
     networks:

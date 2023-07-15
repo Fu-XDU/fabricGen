@@ -38,6 +38,7 @@ var (
 		utils.MaxMessageCountFlag,
 		utils.AbsoluteMaxBytesFlag,
 		utils.PreferredMaxBytesFlag,
+		utils.CpuLimitFlag,
 	}
 )
 
@@ -63,13 +64,13 @@ func starter(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
-	err := deploy(ctx.String("o"), ctx.String("e"), ctx.String("d"), ctx.Int("p"), ctx.Int("s"), ctx.StringSlice("cc"), ctx.String("t"), ctx.String("m"), ctx.String("am"), ctx.String("pm"))
+	err := deploy(ctx.String("o"), ctx.String("e"), ctx.String("d"), ctx.Int("p"), ctx.Int("s"), ctx.StringSlice("cc"), ctx.String("t"), ctx.String("m"), ctx.String("am"), ctx.String("pm"), ctx.Float64("cpu"))
 	return err
 }
 
-func deploy(orgName, endPoint, workingDir string, peerCount, seq int, chaincodes []string, batchTimeout, maxMessageCount, absoluteMaxBytes, preferredMaxBytes string) (err error) {
+func deploy(orgName, endPoint, workingDir string, peerCount, seq int, chaincodes []string, batchTimeout, maxMessageCount, absoluteMaxBytes, preferredMaxBytes string, cpuLimit float64) (err error) {
 	batchSize := generator.NewBatchSize(maxMessageCount, absoluteMaxBytes, preferredMaxBytes)
-	conf, _ := generator.NewConfigtx(orgName, endPoint, workingDir+"/"+orgName, peerCount, seq, chaincodes, batchTimeout, batchSize)
+	conf, _ := generator.NewConfigtx(orgName, endPoint, workingDir+"/"+orgName, peerCount, seq, chaincodes, batchTimeout, batchSize, cpuLimit)
 	err = conf.LifecycleDeploy()
 	if err != nil {
 		log.Println(err)

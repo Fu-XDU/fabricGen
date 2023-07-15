@@ -14,6 +14,7 @@ func Test(t *testing.T) {
 		chaincodes   []string
 		batchTimeout string
 		batchSize    *BatchSize
+		cpuLimit     float64
 	}
 	tests := []struct {
 		name    string
@@ -31,13 +32,14 @@ func Test(t *testing.T) {
 				chaincodes:   []string{"cc1", "cc2"},
 				batchTimeout: "2s",
 				batchSize:    NewBatchSize("10", "98 MB", "512 KB"),
+				cpuLimit:     1,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := NewConfigtx(tt.fields.orgName, tt.fields.endPoint, tt.fields.outDir, tt.fields.peerConut, tt.fields.beginPort, tt.fields.chaincodes, tt.fields.batchTimeout, tt.fields.batchSize)
+			c, err := NewConfigtx(tt.fields.orgName, tt.fields.endPoint, tt.fields.outDir, tt.fields.peerConut, tt.fields.beginPort, tt.fields.chaincodes, tt.fields.batchTimeout, tt.fields.batchSize, tt.fields.cpuLimit)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewConfigtx() error = %v, wantErr %v", err, tt.wantErr)
 			}

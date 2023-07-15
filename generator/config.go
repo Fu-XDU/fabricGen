@@ -20,6 +20,7 @@ type Config struct {
 	chaincodes   map[string]*chaincode
 	BatchTimeout string
 	BatchSize    *BatchSize
+	cpuLimit     float64
 }
 
 // BatchSize contains configuration affecting the size of batches.
@@ -33,7 +34,7 @@ func NewBatchSize(maxMessageCount string, absoluteMaxBytes string, preferredMaxB
 	return &BatchSize{MaxMessageCount: maxMessageCount, AbsoluteMaxBytes: absoluteMaxBytes, PreferredMaxBytes: preferredMaxBytes}
 }
 
-func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chaincodes []string, batchTimeout string, batchSize *BatchSize) (*Config, error) {
+func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chaincodes []string, batchTimeout string, batchSize *BatchSize, cpuLimit float64) (*Config, error) {
 	if peerCount < 1 {
 		return nil, errors.New("peer count should > 1")
 	}
@@ -52,6 +53,7 @@ func NewConfigtx(orgName, endPoint, outDir string, peerCount int, seq int, chain
 		chaincodes:   newChaincodes(chaincodes),
 		BatchTimeout: batchTimeout,
 		BatchSize:    batchSize,
+		cpuLimit:     cpuLimit,
 	}, nil
 }
 
@@ -241,6 +243,7 @@ func (c *Config) replace(str string) string {
 	str = strings.ReplaceAll(str, "#[Endpoint]", c.endPoint)
 	str = strings.ReplaceAll(str, "#[PeerCount]", strconv.Itoa(c.peerConut))
 	str = strings.ReplaceAll(str, "#[workingDir]", c.outDir)
+	str = strings.ReplaceAll(str, "#[cpu_limit]", strconv.FormatFloat(c.cpuLimit, 'f', -1, 64))
 	return str
 }
 
