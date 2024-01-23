@@ -205,6 +205,7 @@ func (c *Config) genConfigTx() (output string, err error) {
 
 func (c *Config) genConfigtxFile() (err error) {
 	tx := c.replace(configtx)
+	tx = strings.ReplaceAll(tx, "#[PeerNum]", "0")
 	tx = strings.ReplaceAll(tx, "#[OrdererPort]", strconv.Itoa(c.beginPort))
 	tx = strings.ReplaceAll(tx, "#[BatchTimeout]", c.BatchTimeout)
 	tx = strings.ReplaceAll(tx, "#[MaxMessageCount]", c.BatchSize.MaxMessageCount)
