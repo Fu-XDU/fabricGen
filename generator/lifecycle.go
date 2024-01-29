@@ -46,7 +46,14 @@ func (c *Config) Up() (err error) {
 
 func (c *Config) CreateAndJoinChannel() (err error) {
 	err = c.CreateChannel()
+	if err != nil {
+		return
+	}
 	err = c.JoinChannel()
+	if err != nil {
+		return
+	}
+	err = c.SetAnchorPeer()
 	return
 }
 
@@ -84,6 +91,13 @@ func (c *Config) JoinChannel() (err error) {
 			}
 		}
 	}
+	return
+}
+
+func (c *Config) SetAnchorPeer() (err error) {
+	cmd := strings.ReplaceAll(setAnchorPeer, "#[OrgNameUpper]", capitalizeFirstChar(c.orgName))
+	cmd = c.replace(cmd)
+	_, _ = ExecShell(cmd)
 	return
 }
 

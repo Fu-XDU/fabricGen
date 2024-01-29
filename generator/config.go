@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -197,6 +198,7 @@ func (c *Config) genConfigTx() (output string, err error) {
 
 	// Set anchor peer
 	cmd = configtxgen + "-profile Channel -outputAnchorPeersUpdate /data/configtx/#[OrgName]MSPanchors_hello.tx -channelID hello -asOrg #[OrgName]MSP"
+	cmd = strings.ReplaceAll(cmd, "#[OrgName]", capitalizeFirstChar(c.orgName))
 	cmd = c.replace(cmd)
 	cmd = fmt.Sprintf(cmd, c.outDir)
 	_, err = ExecShell(cmd)
@@ -205,6 +207,7 @@ func (c *Config) genConfigTx() (output string, err error) {
 
 func (c *Config) genConfigtxFile() (err error) {
 	tx := c.replace(configtx)
+	tx = strings.ReplaceAll(tx, "#[OrgNameUpper]", capitalizeFirstChar(c.orgName))
 	tx = strings.ReplaceAll(tx, "#[PeerNum]", "0")
 	tx = strings.ReplaceAll(tx, "#[OrdererPort]", strconv.Itoa(c.beginPort))
 	tx = strings.ReplaceAll(tx, "#[BatchTimeout]", c.BatchTimeout)
@@ -297,7 +300,12 @@ func toFile(dir, content string) (err error) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err = file.Close()
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+	}(file)
 
 	write := bufio.NewWriter(file)
 	_, err = write.WriteString(content)
@@ -307,4 +315,11 @@ func toFile(dir, content string) (err error) {
 	// Flush将缓存的文件真正写入到文件中
 	err = write.Flush()
 	return
+}
+
+func capitalizeFirstChar(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }

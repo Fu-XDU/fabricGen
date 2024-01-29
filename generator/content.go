@@ -18,7 +18,7 @@ const (
         Rule: "OR('OrdererMSP.admin')"
 
   - &Org
-    Name: #[OrgName]MSP
+    Name: #[OrgNameUpper]MSP
     ID: #[OrgName]MSP
     MSPDir: crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/msp
     AnchorPeers:
@@ -322,10 +322,10 @@ channelPolicy: &channelPolicy
 
 
 grpcOptions: &grpcOptions
-  keep-alive-time: 0s
-  keep-alive-timeout: 20s
+  keep-alive-time: 5s
+  keep-alive-timeout: 6s
   keep-alive-permit: false
-  fail-fast: false
+  fail-fast: true
   allow-insecure: true
 
 channels:
@@ -592,11 +592,13 @@ peers:
       grpc.keepalive_time_ms: 600000
 
 `
-	createChannel = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP cli.#[Endpoint] peer channel create -o orderer.#[Endpoint]:7050 -c hello -f /opt/configtx/hello.tx"
-	joinChannel   = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer channel join -b /opt/configtx/hello.block"
-	installCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode install /opt/gopath/src/github.com/#[CCName]/#[CCName].tar.gz"
-	approveCC     = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode approveformyorg --channelID hello --name #[CCName] --version 1.0 --init-required --package-id #[packageID] --sequence 1"
-	commitCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer lifecycle chaincode commit -o orderer.#[Endpoint]:7050 --channelID hello --name #[CCName] --version 1.0 --sequence 1 --init-required"
-	initCC        = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"peer0.#[OrgName].#[Endpoint]\", \"0xffff\",\"peer1.#[OrgName].#[Endpoint]\", \"0xffff\"]}'"
-	//invokeCC      = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer chaincode invoke -o orderer.#[Endpoint]:7050 -C hello -n #[CCName] -c '{\"Args\":#[Args]}'"
+	dockerPeerCmdPrefix = "docker exec -e CORE_PEER_MSPCONFIGPATH=/opt/crypto-config/peerOrganizations/#[OrgName].#[Endpoint]/users/Admin@#[OrgName].#[Endpoint]/msp -e CORE_PEER_LOCALMSPID=#[OrgName]MSP -e CORE_PEER_ADDRESS=peer#[PeerNum].#[OrgName].#[Endpoint]:7051 cli.#[Endpoint] peer "
+	createChannel       = dockerPeerCmdPrefix + "channel create -o orderer.#[Endpoint]:7050 -c hello -f /opt/configtx/hello.tx"
+	joinChannel         = dockerPeerCmdPrefix + "channel join -b /opt/configtx/hello.block"
+	setAnchorPeer       = dockerPeerCmdPrefix + "channel update -o orderer.#[Endpoint]:7050 -c hello -f /opt/configtx/#[OrgNameUpper]MSPanchors_hello.tx"
+	installCC           = dockerPeerCmdPrefix + "lifecycle chaincode install /opt/gopath/src/github.com/#[CCName]/#[CCName].tar.gz"
+	approveCC           = dockerPeerCmdPrefix + "lifecycle chaincode approveformyorg --channelID hello --name #[CCName] --version 1.0 --init-required --package-id #[packageID] --sequence 1"
+	commitCC            = dockerPeerCmdPrefix + "lifecycle chaincode commit -o orderer.#[Endpoint]:7050 --channelID hello --name #[CCName] --version 1.0 --sequence 1 --init-required"
+	initCC              = dockerPeerCmdPrefix + "chaincode invoke -o orderer.#[Endpoint]:7050 --isInit -C hello -n #[CCName] -c '{\"Args\":[\"peer0.#[OrgName].#[Endpoint]\", \"0xffff\",\"peer1.#[OrgName].#[Endpoint]\", \"0xffff\"]}'"
+	//invokeCC            = dockerPeerCmdPrefix + "chaincode invoke -o orderer.#[Endpoint]:7050 -C hello -n #[CCName] -c '{\"Args\":#[Args]}'"
 )
